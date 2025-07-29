@@ -1,0 +1,27 @@
+# Core dependencies
+torch>=1.13.0
+torchvision>=0.14.0
+opencv-python>=4.8.0
+numpy>=1.21.0
+pandas>=1.5.0
+pillow>=9.0.0
+tqdm>=4.64.0
+
+# Face recognition and processing
+mtcnn>=0.1.1
+facenet-pytorch>=2.5.2
+mmcv>=2.0.0
+
+# Vector database
+pinecone-client>=3.0.0
+
+# Configuration and utilities
+pyyaml>=6.0
+pathlib2>=2.3.7
+
+# Optional: Development dependencies
+# pytest>=6.0
+# pytest-cov>=4.0
+# black>=22.0
+# flake8>=5.0
+# mypy>=1.0 

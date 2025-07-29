@@ -1,0 +1,4 @@
+model_settings:
+  batch_size: 48
+  output_dir: "results/"
+  video_path: "demo/demo.mp4"
