@@ -23,7 +23,7 @@ class AutomaticFaceRecognizer:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
         # Extract configuration values with defaults
-        self.pinecone_api_key = config.get('api_key')
+        self.pinecone_api_key = os.environ.get('PINECONE_API_KEY')
         if not self.pinecone_api_key:
             raise ValueError("api_key is required in config")
         

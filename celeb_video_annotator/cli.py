@@ -193,15 +193,11 @@ Examples:
     
     # Validate required config fields
     required_fields = ['output_dir']
-    if args.create_database or args.generate_video:
-        required_fields.append('api_key')
     
     try:
         validate_config(config, required_fields)
     except ValueError as e:
         print(f"Config validation error: {e}")
-        if 'api_key' in str(e):
-            print("Hint: Add 'api_key: your_api_key_here' to your config.yaml")
         sys.exit(1)
     
     # Create output directory
