@@ -109,7 +109,8 @@ dmypy.json
 .pyre/
 
 # Project specific
-data/
+data/Faces
+data/Original Images
 *.jpg
 results/
 *.mp4
