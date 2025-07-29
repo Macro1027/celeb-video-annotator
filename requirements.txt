@@ -19,6 +19,7 @@ pinecone>=3.0.0
 # Configuration and utilities
 pyyaml>=6.0
 pathlib2>=2.3.7
+python-dotenv>=1.0.0
 
 # Data download
 kaggle>=1.5.12

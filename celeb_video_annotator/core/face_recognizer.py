@@ -23,9 +23,9 @@ class AutomaticFaceRecognizer:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
         # Extract configuration values with defaults
-        self.pinecone_api_key = os.environ.get('PINECONE_API_KEY')
+        self.pinecone_api_key = config['api_key']
         if not self.pinecone_api_key:
-            raise ValueError("api_key is required in config")
+            raise ValueError("api_key is required in secrets")
         
         self.index_name = config.get('index_name', 'face-recognition-embeddings')
         self.batch_size = config.get('batch_size', 48)

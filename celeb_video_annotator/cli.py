@@ -122,6 +122,15 @@ Examples:
   python -m celeb_video_annotator.cli --create-database
   python -m celeb_video_annotator.cli --generate-video --export-timeline
   python -m celeb_video_annotator.cli --generate-video --no-export-timeline
+
+Environment Variables:
+  PINECONE_API_KEY     Pinecone API key for vector database
+  KAGGLE_USERNAME      Kaggle username for dataset download
+  KAGGLE_KEY          Kaggle API key for dataset download
+  VIDEO_PATH          Path to video file to process
+  OUTPUT_DIR          Output directory (default: results/)
+  TARGET_LABEL        Specific person to highlight in annotations
+  DEBUG_CONFIG        Show configuration loading details
         """
     )
     
@@ -134,7 +143,7 @@ Examples:
     parser.add_argument(
         '--generate-video',
         action='store_true',
-        help='Process video and generate annotated version (uses video_path from config.yaml)'  
+        help='Process video and generate annotated version (uses video_path from config.yaml or VIDEO_PATH env var)'  
     )
     
     parser.add_argument(
@@ -156,7 +165,17 @@ Examples:
         help='Path to config file (default: config/config.yaml)'
     )
     
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Show debug information including configuration sources'
+    )
+    
     args = parser.parse_args()
+    
+    # Set debug environment variable if requested
+    if args.debug:
+        os.environ['DEBUG_CONFIG'] = '1'
     
     # Handle conflicting timeline options
     if args.no_export_timeline:
@@ -168,31 +187,30 @@ Examples:
     
     # Import utilities only when needed
     try:
-        from .utils.config import load_config, validate_config, ensure_directory
+        from .utils.config import load_config, validate_config, ensure_directory, setup_kaggle_from_env, print_config_summary
         from .data.loader import get_available_faces
     except ImportError as e:
         print(f"Error: Missing required dependencies: {e}")
         print("Please install requirements: pip install -r requirements.txt")
         sys.exit(1)
     
-    # Load configuration
+    # Load configuration with environment variable support
     try:
-        raw_config = load_config(args.config)
-        # Handle nested config structure
-        if 'model_settings' in raw_config:
-            config = raw_config['model_settings'].copy()
-            # Add any root-level keys
-            for key, value in raw_config.items():
-                if key != 'model_settings':
-                    config[key] = value
-        else:
-            config = raw_config
+        config = load_config(args.config)
+        
+        if args.debug:
+            print_config_summary(config)
+        
     except Exception as e:
         print(f"Error loading config file '{args.config}': {e}")
         sys.exit(1)
     
     # Validate required config fields
     required_fields = ['output_dir']
+    if args.create_database or args.generate_video:
+        required_fields.append('api_key')
+    if args.generate_video:
+        required_fields.append('video_path')
     
     try:
         validate_config(config, required_fields)
@@ -203,14 +221,24 @@ Examples:
     # Create output directory
     ensure_directory(config['output_dir'])
     
+    # Setup Kaggle credentials if available
+    kaggle_setup = setup_kaggle_from_env()
+    if not kaggle_setup and args.create_database:
+        print("Warning: Kaggle credentials not configured. Dataset download may fail.")
+    
     # Get selected faces
     try:
         selected_faces = get_available_faces()
     except FileNotFoundError as e:
         print(f"Error: {e}")
-        sys.exit(1)
+        if args.create_database:
+            print("This might be resolved automatically by downloading the dataset...")
+            selected_faces = []  # Will be set after download
+        else:
+            sys.exit(1)
     
-    print(f"Selected faces: {selected_faces}")
+    if selected_faces:
+        print(f"Selected faces: {selected_faces}")
     
     recognizer = None
     results = None
@@ -246,24 +274,27 @@ Examples:
         print("="*50)
         
         if args.create_database:
-            print("✓ Face database created")
+            print("✅ Face database created")
         
         if args.generate_video:
-            print(f"✓ Video processed: {config.get('video_path')}")
-            print(f"✓ Annotated video: {annotated_video_path}")
+            print(f"✅ Video processed: {config.get('video_path')}")
+            print(f"✅ Annotated video: {annotated_video_path}")
             
             if results:
-                print(f"✓ Processed {len(results)} frames")
+                print(f"✅ Processed {len(results)} frames")
                 
                 # Debug results
                 if recognizer:
                     recognizer.debug_results_data(results)
         
         if args.export_timeline and results:
-            print(f"✓ Timeline exported: {timeline_path}")
+            print(f"✅ Timeline exported: {timeline_path}")
             
     except Exception as e:
         print(f"Error during processing: {e}")
+        if args.debug:
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
 
 
