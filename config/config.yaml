@@ -2,6 +2,4 @@ model_settings:
   batch_size: 48
   output_dir: "results/"
   video_path: "demo/hugh jackman.mp4"
-
-env:
-  PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
+  target_label: true

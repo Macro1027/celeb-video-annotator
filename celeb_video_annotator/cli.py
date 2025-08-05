@@ -125,8 +125,6 @@ Examples:
 
 Environment Variables:
   PINECONE_API_KEY     Pinecone API key for vector database
-  KAGGLE_USERNAME      Kaggle username for dataset download
-  KAGGLE_KEY          Kaggle API key for dataset download
   VIDEO_PATH          Path to video file to process
   OUTPUT_DIR          Output directory (default: results/)
   TARGET_LABEL        Specific person to highlight in annotations
@@ -187,7 +185,7 @@ Environment Variables:
     
     # Import utilities only when needed
     try:
-        from .utils.config import load_config, validate_config, ensure_directory, setup_kaggle_from_env, print_config_summary
+        from .utils.config import load_config, validate_config, ensure_directory, print_config_summary
         from .data.loader import get_available_faces
     except ImportError as e:
         print(f"Error: Missing required dependencies: {e}")
@@ -208,7 +206,9 @@ Environment Variables:
     # Validate required config fields
     required_fields = ['output_dir']
     if args.create_database or args.generate_video:
-        required_fields.append('api_key')
+        # Only require api_key if PINECONE_API_KEY is not set in environment
+        if not os.getenv('PINECONE_API_KEY'):
+            required_fields.append('api_key')
     if args.generate_video:
         required_fields.append('video_path')
     
@@ -221,19 +221,14 @@ Environment Variables:
     # Create output directory
     ensure_directory(config['output_dir'])
     
-    # Setup Kaggle credentials if available
-    kaggle_setup = setup_kaggle_from_env()
-    if not kaggle_setup and args.create_database:
-        print("Warning: Kaggle credentials not configured. Dataset download may fail.")
-    
     # Get selected faces
     try:
         selected_faces = get_available_faces()
     except FileNotFoundError as e:
         print(f"Error: {e}")
         if args.create_database:
-            print("This might be resolved automatically by downloading the dataset...")
-            selected_faces = []  # Will be set after download
+            print("Please ensure the dataset is available in the data/ directory.")
+            selected_faces = []
         else:
             sys.exit(1)
     

@@ -1,7 +1,7 @@
-# Core dependencies
+# Core dependencies - PyTorch only (TensorFlow removed for Apple Silicon compatibility)
 torch>=1.13.0
 torchvision>=0.14.0
-tensorflow>=2.10.0
+# tensorflow>=2.10.0  # Removed - conflicts with Apple Silicon AVX instructions
 opencv-python>=4.8.0
 numpy>=1.21.0
 pandas>=1.5.0
@@ -9,8 +9,8 @@ pillow>=9.0.0
 tqdm>=4.64.0
 
 # Face recognition and processing
-mtcnn>=0.1.1
-facenet-pytorch>=2.5.2
+# mtcnn>=0.1.1  # Removed - TensorFlow dependency, using facenet-pytorch MTCNN instead
+facenet-pytorch>=2.5.2  # Includes PyTorch-based MTCNN
 mmcv>=2.0.0
 
 # Vector database

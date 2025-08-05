@@ -11,8 +11,7 @@ from typing import Dict, List, Optional
 from tqdm import tqdm
 from collections import Counter, defaultdict
 from PIL import Image
-from mtcnn import MTCNN
-from facenet_pytorch import InceptionResnetV1
+from facenet_pytorch import MTCNN, InceptionResnetV1
 from ..core.feature_extractor import ExtractFeaturesMTCNN
 
 
