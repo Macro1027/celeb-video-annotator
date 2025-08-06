@@ -1,7 +1,5 @@
-from celeb_video_annotator.api.schema import *
-
 import json
-import redis
+import redis.asyncio as redis
 from typing import Annotated, Optional
 import time
 from fastapi import FastAPI, File, UploadFile, Query, HTTPException, BackgroundTasks
@@ -11,38 +9,48 @@ import uuid
 import os
 
 from celeb_video_annotator.utils import load_config
+from celeb_video_annotator.api.schema import *
 
 app = FastAPI()
 
-# Initialize Redis connection with error handling
-try:
-    r = redis.Redis(host='localhost', port=6379, db=0, socket_connect_timeout=5)
-    r.ping()  # Test connection
-    print("✅ Redis connected successfully")
-except Exception as e:
-    print(f"❌ Redis connection failed: {e}")
-    # For now, we'll continue without Redis, but functions will fail
-    r = None
+# Initialize async Redis connection with error handling
+redis_client = None
 
-def store_job(job_id: str, job_data: dict):
-    # Store job in Redis
-    if r is None:
+async def get_redis():
+    """Get Redis connection, initialize if needed"""
+    global redis_client
+    if redis_client is None:
+        try:
+            redis_client = redis.from_url("redis://localhost:6379", decode_responses=True)
+            await redis_client.ping()
+            print("✅ Redis connected successfully")
+        except Exception as e:
+            print(f"❌ Redis connection failed: {e}")
+            redis_client = None
+    return redis_client
+
+async def store_job(job_id: str, job_data: dict):
+    """Store job in Redis (async)"""
+    redis = await get_redis()
+    if redis is None:
         print("❌ Redis not available, cannot store job")
         return
-    r.set(f"job:{job_id}", json.dumps(job_data, default=str))
+    await redis.set(f"job:{job_id}", json.dumps(job_data, default=str))
 
-def get_job(job_id: str) -> dict:
-    # Get job from Redis
-    if r is None:
+async def get_job(job_id: str) -> dict:
+    """Get job from Redis (async)"""
+    redis = await get_redis()
+    if redis is None:
         print("❌ Redis not available, cannot get job")
         return None
-    job_json = r.get(f"job:{job_id}")
+    job_json = await redis.get(f"job:{job_id}")
     if not job_json:
         return None
     return json.loads(job_json)
 
-def update_job_status(job_id: str, status: str, progress: float = None, download_url: str = None, errors: list = None):
-    job_data = get_job(job_id)
+async def update_job_status(job_id: str, status: str, progress: float = None, download_url: str = None, errors: list = None):
+    """Update job status in Redis (async)"""
+    job_data = await get_job(job_id)
     if job_data:
         job_data["status"] = status
         if progress is not None:
@@ -51,23 +59,23 @@ def update_job_status(job_id: str, status: str, progress: float = None, download
             job_data["download_url"] = download_url
         if errors is not None:
             job_data["errors"] = errors
-        store_job(job_id, job_data)
+        await store_job(job_id, job_data)
 
 async def annotate_video_background(job_id: str, video_path: str, config: dict, recognizer = None, save_results=False):
     try:
 
         # 1. Initialize processing
-        update_job_status(job_id, status="running", progress=5.0)
+        await update_job_status(job_id, status="running", progress=5.0)
 
         # 2. Load face recognizer
         if recognizer is None:
             from celeb_video_annotator.core.face_recognizer import AutomaticFaceRecognizer
             recognizer = AutomaticFaceRecognizer(config)
-        update_job_status(job_id, status="running", progress=20.0)
+        await update_job_status(job_id, status="running", progress=20.0)
 
         # 3. Extract faces from video
         results = recognizer.extract_and_embeddings_from_video(video_path)
-        update_job_status(job_id, status="running", progress=60.0)
+        await update_job_status(job_id, status="running", progress=60.0)
 
         # 4. Save results if necessary
         if save_results:
@@ -88,11 +96,11 @@ async def annotate_video_background(job_id: str, video_path: str, config: dict, 
             min_confidence=0.8,
             only_label=config['target_label'] 
         )
-        update_job_status(job_id, status="running", progress=95.0)
+        await update_job_status(job_id, status="running", progress=95.0)
 
         # 6. Mark as completed
         download_url = f"/download/{job_id}"
-        update_job_status(job_id, status="completed", progress=100.0, download_url=download_url)
+        await update_job_status(job_id, status="completed", progress=100.0, download_url=download_url)
 
         # 7. Cleanup temp file
         if os.path.exists(video_path):
@@ -100,7 +108,7 @@ async def annotate_video_background(job_id: str, video_path: str, config: dict, 
 
     except Exception as e:
         # Update with error
-        update_job_status(job_id, status="failed", errors=[str(e)])
+        await update_job_status(job_id, status="failed", errors=[str(e)])
 
 @app.post("/annotate")
 async def annotate_video(
@@ -133,7 +141,7 @@ async def annotate_video(
         "download_url": "none",
         "errors": [],
     }
-    store_job(job_id, job_data)
+    await store_job(job_id, job_data)
 
     # load config
     config = load_config('config/config.yaml')
@@ -162,14 +170,14 @@ async def annotate_video(
 
 @app.get("/jobs/{job_id}/status")
 async def get_job_status(job_id: str):
-    job_data = get_job(job_id)
+    job_data = await get_job(job_id)
     if not job_data:
         raise HTTPException(404, "Job not found")
     return AnnotationStatusResponse(**job_data)
 
 @app.get("/jobs/{job_id}/download")
 async def download_video(job_id: str):
-    job_data = get_job(job_id)
+    job_data = await get_job(job_id)
     if not job_data:
         raise HTTPException(404, "Job not found")
     
@@ -192,10 +200,11 @@ async def health_check():
     status = {"status": "ok", "checks": {}}
     # Test Redis
     try:
-        if r is None:
+        redis = await get_redis()
+        if redis is None:
             status["checks"]["redis"] = "❌ Not initialized"
         else:
-            r.ping()
+            await redis.ping()
             status["checks"]["redis"] = "✅ Connected"
     except Exception as e:
         status["checks"]["redis"] = f"❌ Failed: {e}"
