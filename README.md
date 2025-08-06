@@ -8,7 +8,7 @@ A powerful, containerized Python application that automatically recognizes and a
 
 -   **🚀 High-Performance API**: Built with **FastAPI** for asynchronous, high-throughput video processing.
 -   **📦 Containerized Deployment**: One-command launch with **Docker & Docker Compose**.
--   ** asynchronous Job Queue**: Uses **Redis** to manage long-running annotation tasks.
+-   **asynchronous Job Queue**: Uses **Redis** to manage long-running annotation tasks.
 -   **👨‍💻 State-of-the-Art ML**:
     -   **Face Detection**: Robust MTCNN from `facenet-pytorch`.
     -   **Face Recognition**: High-accuracy embeddings with FaceNet.
