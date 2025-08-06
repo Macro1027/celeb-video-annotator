@@ -1,61 +1,161 @@
-# Celebrity Video Annotator
+# Celebrity Video Annotator & API
 
-A professional Python package for automatic face recognition and video annotation using state-of-the-art deep learning models.
+A powerful, containerized Python application that automatically recognizes and annotates celebrities in videos using deep learning, served via a high-performance FastAPI.
 
-## Features
+![Demo](https://user-images.githubusercontent.com/12345/your-demo-gif-url-here.gif) <!-- TODO: Add a GIF of the API in action -->
 
-- **Face Detection**: Uses MTCNN for robust face detection across video frames
-- **Face Recognition**: Leverages deep learning embeddings for accurate face identification
-- **Vector Database**: Powered by Pinecone for efficient similarity search
-- **Video Annotation**: Automatically annotates videos with identified faces
-- **Timeline Export**: Generate CSV timelines showing when each person appears
-- **Batch Processing**: Efficient processing of large video files
-- **Professional CLI**: Command-line interface for easy integration into workflows
+## ✨ Core Features
 
-## Installation
+-   **🚀 High-Performance API**: Built with **FastAPI** for asynchronous, high-throughput video processing.
+-   **📦 Containerized Deployment**: One-command launch with **Docker & Docker Compose**.
+-   ** asynchronous Job Queue**: Uses **Redis** to manage long-running annotation tasks.
+-   **👨‍💻 State-of-the-Art ML**:
+    -   **Face Detection**: Robust MTCNN from `facenet-pytorch`.
+    -   **Face Recognition**: High-accuracy embeddings with FaceNet.
+    -   **Vector Search**: Efficient similarity search powered by **Pinecone**.
+-   **🎥 Automatic Annotation**: Overlays celebrity names directly onto the video.
+-   **🔧 Flexible & Scalable**: Asynchronous architecture ready for scaling.
+-   **💻 Versatile CLI**: Includes a command-line interface for local processing and database management.
+
+---
+
+## 🚀 Quick Start: Deploy with Docker
+
+Get the API running in a few commands.
 
 ### Prerequisites
+-   **Docker** and **Docker Compose** installed.
+-   **Pinecone API Key**.
 
-- Python 3.8 or higher
-- CUDA-compatible GPU (recommended for faster processing)
-
-### Install from source
-
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/yourusername/celeb-video-annotator.git
 cd celeb-video-annotator
-pip install -e .
 ```
 
-### Install dependencies
+### 2. Set Up Environment
+Copy the example environment file and add your Pinecone API key.
+```bash
+cp env.example .env
+```
+Now, edit `.env` and add your key:
+```dotenv
+# .env
+PINECONE_API_KEY=YOUR_PINECONE_API_KEY_HERE
+```
+
+### 3. Build and Launch the Services
+This single command builds the Docker image, starts the API, and runs the Redis service.
+```bash
+docker-compose up --build
+```
+The API will be available at `http://localhost:8000`.
+
+### 4. Check Service Health
+Verify that the API and its connection to Redis are healthy.
+```bash
+curl http://localhost:8000/health
+```
+You should see a response like:
+```json
+{
+  "status": "ok",
+  "checks": {
+    "redis": "✅ Connected",
+    "config": "✅ Loaded",
+    "face_recognizer": "✅ Can import"
+  }
+}
+```
+
+---
+
+## 📖 API Usage
+
+Interact with the API using any HTTP client (like `curl`, Postman, or Python's `requests`).
+
+### Interactive Docs
+For a full, interactive API specification, go to:
+**[http://localhost:8000/docs](http://localhost:8000/docs)**
+
+### 1. Annotate a Video
+Send a video file to the `/annotate` endpoint. This will start a background job.
 
 ```bash
+curl -X POST -F "file=@/path/to/your/video.mp4" "http://localhost:8000/annotate"
+```
+
+The API will immediately respond with a `job_id`:
+```json
+{
+  "job_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+  "status": "pending",
+  "filename": "your_video.mp4",
+  "file_size": 12345678,
+  "submitted_at": "2023-10-27T10:00:00Z"
+}
+```
+
+### 2. Check Job Status
+Use the `job_id` to poll the `/jobs/{job_id}/status` endpoint.
+
+```bash
+curl http://localhost:8000/jobs/a1b2c3d4-e5f6-7890-1234-567890abcdef/status
+```
+
+The response will show the current status and progress:
+```json
+{
+  "job_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+  "status": "running", /* pending | running | completed | failed */
+  "progress": 60.5,
+  "download_url": null,
+  "errors": []
+}
+```
+
+### 3. Download Annotated Video
+Once the job `status` is `"completed"`, a `download_url` will appear.
+
+```bash
+curl http://localhost:8000/jobs/a1b2c3d4-e5f6-7890-1234-567890abcdef/status
+```
+Response:
+```json
+{
+  "job_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+  "status": "completed",
+  "progress": 100.0,
+  "download_url": "/jobs/a1b2c3d4-e5f6-7890-1234-567890abcdef/download",
+  "errors": []
+}
+```
+
+Use the URL to download the final, annotated video file. The file will be saved in your `results/` directory.
+
+---
+
+##  CLI for Local Usage
+
+For tasks like managing the face recognition database, a CLI is available.
+
+### 1. Installation (without Docker)
+```bash
+# Clone the repo (if you haven't already)
+git clone https://github.com/yourusername/celeb-video-annotator.git
+cd celeb-video-annotator
+
+# Install in editable mode
+pip install -e .
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-## Quick Start
-
-### 1. Configuration
-
-Create or update `config/config.yaml`:
-
-```yaml
-model_settings:
-  batch_size: 48
-  output_dir: "results/"
-  video_path: "demo/your_video.mp4"
-  api_key: "your_pinecone_api_key_here"
-  index_name: "face-recognition-embeddings"
-  target_label: "Person Name"  # Optional: highlight specific person
-```
-
-### 2. Prepare Dataset
-
-Place your face recognition dataset in the following structure:
-
+### 2. Prepare Face Dataset
+Your dataset of known faces should follow this structure:
 ```
 data/
-├── Dataset.csv
 └── Original Images/
     └── Original Images/
         ├── Person1/
@@ -66,124 +166,77 @@ data/
             └── image2.jpg
 ```
 
-### 3. Run the CLI
-
-```bash
-# Create face database and process video with timeline
-python -m celeb_video_annotator.cli --create-database --generate-video --export-timeline
-
-# Or use the installed command
-celeb-video-annotator --create-database --generate-video --export-timeline
-```
-
-## Usage Examples
-
-### Create Database Only
+### 3. Create Face Database
+Run this command to process the images and upload the face embeddings to Pinecone.
 ```bash
 celeb-video-annotator --create-database
 ```
+*Note: Ensure `PINECONE_API_KEY` is set as an environment variable or is present in `config/config.yaml`.*
 
-### Process Video Only
+### 4. Generate Video Locally
+To process a video using the CLI without the API:
 ```bash
-celeb-video-annotator --generate-video
+celeb-video-annotator --generate-video --config path/to/your/config.yaml
 ```
 
-### Full Pipeline with Timeline
-```bash
-celeb-video-annotator --create-database --generate-video --export-timeline
-```
+---
 
-### Custom Config File
-```bash
-celeb-video-annotator --config path/to/custom/config.yaml --generate-video
-```
-
-## API Usage
-
-```python
-from celeb_video_annotator import AutomaticFaceRecognizer, load_config
-
-# Load configuration
-config = load_config('config/config.yaml')
-
-# Initialize recognizer
-recognizer = AutomaticFaceRecognizer(config)
-
-# Process video
-results = recognizer.extract_and_embeddings_from_video('video.mp4')
-
-# Create annotated video
-recognizer.rebuild_video_with_annotations(
-    'video.mp4', 
-    results, 
-    'annotated_video.mp4'
-)
-```
-
-## Project Structure
-
+## 🏗️ Project Structure
 ```
 celeb-video-annotator/
-├── celeb_video_annotator/        # Main package
-│   ├── __init__.py
-│   ├── cli.py                    # Command-line interface
-│   ├── core/                     # Core functionality
+├── celeb_video_annotator/        # Main Python package
+│   ├── api/                      # FastAPI service
+│   │   ├── endpoints.py          # API endpoints and logic
+│   │   └── schema.py             # Pydantic data models
+│   ├── core/                     # Core ML functionality
 │   │   ├── face_recognizer.py    # Main recognition logic
 │   │   └── feature_extractor.py  # Feature extraction
-│   ├── data/                     # Data handling
-│   │   └── loader.py             # Dataset loading utilities
-│   └── utils/                    # Utilities
-│       └── config.py             # Configuration management
+│   ├── cli.py                    # Command-line interface
+│   └── ...
 ├── config/                       # Configuration files
 │   └── config.yaml
-├── data/                         # Dataset directory
-├── tests/                        # Test files
-├── scripts/                      # Utility scripts
-├── requirements.txt              # Dependencies
-├── setup.py                      # Package setup
+├── data/                         # Datasets for face recognition
+├── results/                      # Output directory for annotated videos
+├── temp/                         # Temporary storage for uploads
+├── tests/                        # Unit and integration tests
+├── .env                          # Local environment variables (gitignored)
+├── env.example                   # Example environment file
+├── requirements.txt              # Python dependencies
+├── setup.py                      # Package setup for installation
+├── Dockerfile                    # Docker build instructions for the API
+├── docker-compose.yml            # Defines API and Redis services
+├── start_server.sh               # Server startup script (used by Docker)
 └── README.md                     # This file
 ```
 
-## Configuration Options
+## ⚙️ Configuration
+Configuration is handled via `config/config.yaml` and environment variables.
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `api_key` | Pinecone API key | Required |
-| `batch_size` | Processing batch size | 48 |
-| `output_dir` | Output directory | "results/" |
-| `video_path` | Input video path | Required |
-| `index_name` | Pinecone index name | "face-recognition-embeddings" |
-| `target_label` | Specific person to highlight | None |
+| Parameter | `config.yaml` | Environment Variable | Priority | Description |
+|-----------|---------------|----------------------|----------|-------------|
+| **Pinecone Key** | `api_key` | `PINECONE_API_KEY` | Env Var | **Required** for face database. |
+| **Batch Size** | `batch_size` | | Config | Processing batch size for ML model. |
+| **Output Dir** | `output_dir` | `OUTPUT_DIR` | Env Var | Where to save annotated videos. |
+| **Index Name** | `index_name` | | Config | Pinecone index name. |
 
-## Output Files
+## 🛠️ Technologies Used
+- **Python 3.12**
+- **FastAPI**: Modern web framework
+- **Uvicorn**: ASGI server
+- **PyTorch**: Deep learning framework
+- **Facenet-PyTorch**: Pre-trained models for face detection & recognition
+- **OpenCV**: Video processing
+- **Pinecone**: Vector database for similarity search
+- **Redis**: In-memory database for job queueing
+- **Docker & Docker Compose**: Containerization and service orchestration
+- **Pydantic**: Data validation and settings management
 
-- **Recognition Results**: `{video_name}_recognition.json`
-- **Annotated Video**: `{video_name}_annotated.mp4`
-- **Timeline**: `{video_name}_timeline.csv`
+## 🤝 Contributing
+1.  Fork the repository.
+2.  Create a feature branch (`git checkout -b feature/amazing-feature`).
+3.  Commit your changes (`git commit -m 'Add amazing feature'`).
+4.  Push to the branch (`git push origin feature/amazing-feature`).
+5.  Open a Pull Request.
 
-## Requirements
-
-- PyTorch >= 1.13.0
-- OpenCV >= 4.8.0
-- MTCNN for face detection
-- Facenet-PyTorch for embeddings
-- Pinecone for vector database
-- See `requirements.txt` for complete list
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- MTCNN for face detection
-- FaceNet for face embeddings
-- Pinecone for vector database infrastructure 
+## 📄 License
+This project is licensed under the MIT License. 

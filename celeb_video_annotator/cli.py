@@ -208,7 +208,7 @@ Environment Variables:
     if args.create_database or args.generate_video:
         # Only require api_key if PINECONE_API_KEY is not set in environment
         if not os.getenv('PINECONE_API_KEY'):
-            required_fields.append('api_key')
+        required_fields.append('api_key')
     if args.generate_video:
         required_fields.append('video_path')
     
