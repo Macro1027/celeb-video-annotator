@@ -1,7 +1,6 @@
-from typing import Union, Annotated, Optional, Literal
+from typing import Annotated, Optional, Literal
 from pydantic import BaseModel, Field
 from datetime import datetime
-import time
 
 
 class AnnotationJobResponse(BaseModel):

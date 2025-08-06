@@ -1,4 +1,4 @@
-from schema import *
+from celeb_video_annotator.api.schema import *
 
 import json
 import redis
@@ -10,17 +10,32 @@ from pathlib import Path
 import uuid
 import os
 
-from ..utils import load_config
+from celeb_video_annotator.utils import load_config
 
 app = FastAPI()
-r = redis.Redis(host='localhost', port=6379, db=0)
+
+# Initialize Redis connection with error handling
+try:
+    r = redis.Redis(host='localhost', port=6379, db=0, socket_connect_timeout=5)
+    r.ping()  # Test connection
+    print("✅ Redis connected successfully")
+except Exception as e:
+    print(f"❌ Redis connection failed: {e}")
+    # For now, we'll continue without Redis, but functions will fail
+    r = None
 
 def store_job(job_id: str, job_data: dict):
     # Store job in Redis
+    if r is None:
+        print("❌ Redis not available, cannot store job")
+        return
     r.set(f"job:{job_id}", json.dumps(job_data, default=str))
 
 def get_job(job_id: str) -> dict:
     # Get job from Redis
+    if r is None:
+        print("❌ Redis not available, cannot get job")
+        return None
     job_json = r.get(f"job:{job_id}")
     if not job_json:
         return None
@@ -46,7 +61,7 @@ async def annotate_video_background(job_id: str, video_path: str, config: dict, 
 
         # 2. Load face recognizer
         if recognizer is None:
-            from ..core.face_recognizer import AutomaticFaceRecognizer
+            from celeb_video_annotator.core.face_recognizer import AutomaticFaceRecognizer
             recognizer = AutomaticFaceRecognizer(config)
         update_job_status(job_id, status="running", progress=20.0)
 
@@ -172,9 +187,34 @@ async def download_video(job_id: str):
         filename=f"annotated_{job_data.get('filename', 'video')}"
     )
 
-@app.post("/x")
-async def test(x: Annotated[int, Query(description="hi")]):
-    return "hi"
+@app.get("/health")
+async def health_check():
+    status = {"status": "ok", "checks": {}}
+    # Test Redis
+    try:
+        if r is None:
+            status["checks"]["redis"] = "❌ Not initialized"
+        else:
+            r.ping()
+            status["checks"]["redis"] = "✅ Connected"
+    except Exception as e:
+        status["checks"]["redis"] = f"❌ Failed: {e}"
+    
+    # Test config loading
+    try:
+        config = load_config('config/config.yaml')
+        status["checks"]["config"] = "✅ Loaded"
+    except Exception as e:
+        status["checks"]["config"] = f"❌ Failed: {e}"
+    
+    # Test face recognizer import
+    try:
+        from celeb_video_annotator.core.face_recognizer import AutomaticFaceRecognizer
+        status["checks"]["face_recognizer"] = "✅ Can import"
+    except Exception as e:
+        status["checks"]["face_recognizer"] = f"❌ Failed: {e}"
+    
+    return status
 
     
 

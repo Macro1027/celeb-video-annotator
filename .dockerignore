@@ -1,0 +1,66 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Data files (can be large)
+*.zip
+*.tar.gz
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Results and temp directories (will be created in container)
+results/
+temp/
+
+# Test files
+.pytest_cache/
+tests/
+
+# Documentation
+README.md
+*.md
+
+# Large dataset files
+face-recognition-dataset.zip
+data/Original Images/
+
+# Local config
+.env
+kaggle.json
+
+# Cache
+.cache/ 

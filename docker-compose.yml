@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # Redis service
+  redis:
+    image: redis:7-alpine
+    container_name: celeb-annotator-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Main API service
+  api:
+    build: .
+    container_name: celeb-annotator-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - OUTPUT_DIR=results/
+      - DEBUG_CONFIG=${DEBUG_CONFIG:-0}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      # Persist results and uploads
+      - ./results:/app/results
+      - ./temp:/app/temp
+      # Mount config if you want to modify it
+      - ./config:/app/config
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  redis_data:
+
+networks:
+  default:
+    name: celeb-annotator-network 
